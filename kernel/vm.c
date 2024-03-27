@@ -348,7 +348,7 @@ uvmclear(pagetable_t pagetable, uint64 va)
   *pte &= ~PTE_U;
 }
 
-// Copy from kernel to user.
+// Copy from kernel to user.从src复制回一个指定的页表
 // Copy len bytes from src to virtual address dstva in a given page table.
 // Return 0 on success, -1 on error.
 int

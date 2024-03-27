@@ -63,7 +63,7 @@ mycpu(void) {
   return c;
 }
 
-// Return the current struct proc *, or zero if none.
+// 正在运行的进程指针Return the current struct proc *, or zero if none.
 struct proc*
 myproc(void) {
   push_off();
@@ -81,7 +81,6 @@ allocpid() {
   pid = nextpid;
   nextpid = nextpid + 1;
   release(&pid_lock);
-
   return pid;
 }
 
@@ -127,6 +126,7 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+p->syscall_trace=0;
   return p;
 }
 
@@ -207,7 +207,7 @@ uchar initcode[] = {
   0x00, 0x00, 0x00, 0x00
 };
 
-// Set up first user process.
+// Set up first user process.创建第一个进程
 void
 userinit(void)
 {
@@ -290,7 +290,7 @@ fork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
-
+np->syscall_trace=p->syscall_trace;//子进程copy父进程的
   pid = np->pid;
 
   np->state = RUNNABLE;
@@ -692,4 +692,22 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+uint64 get_pro_num(void)
+{
+  struct proc *p;
+  uint64 num=0;
+  for(p = proc; p < &proc[NPROC]; p++) 
+  {
+    acquire(&p->lock);
+    if(p->state!=UNUSED)
+    {
+      num++;
+    }
+    release(&p->lock);
+  }
+  return num;
+
+  
 }

@@ -159,7 +159,7 @@ w_mideleg(uint64 x)
 }
 
 // Supervisor Trap-Vector Base Address
-// low two bits are mode.
+// low two bits are mode.内核在这里写入其陷阱处理程序的地址；RISC-V跳转到这里处理陷阱。
 static inline void 
 w_stvec(uint64 x)
 {
@@ -215,7 +215,7 @@ w_mscratch(uint64 x)
   asm volatile("csrw mscratch, %0" : : "r" (x));
 }
 
-// Supervisor Trap Cause
+// Supervisor Trap Cause RISC-V在这里放置一个描述陷阱原因的数字。
 static inline uint64
 r_scause()
 {
@@ -261,7 +261,7 @@ r_time()
 static inline void
 intr_on()
 {
-  w_sstatus(r_sstatus() | SSTATUS_SIE);
+  w_sstatus(r_sstatus() | SSTATUS_SIE);//SIE控制设备中断是否启用
 }
 
 // disable device interrupts

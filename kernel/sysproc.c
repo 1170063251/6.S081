@@ -6,7 +6,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
-
+#include "sysinfo.h"
 uint64
 sys_exit(void)
 {
@@ -95,3 +95,38 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_trace(void)
+{
+  int mask;
+  if(argint(0, &mask) < 0)
+    return -1;
+  else
+  {
+    myproc()->syscall_trace=mask;
+    return 0;
+  }
+
+}
+
+uint64
+sys_sysinfo(void)
+{
+  uint64 addr;//从用户态读回来一个指针用来放sysinfo结构体
+  if(argaddr(0, &addr) < 0)
+    return -1;
+
+  struct sysinfo s;
+  s.freemem=get_free_memory();
+  printf("%d\n",s.freemem);
+ 
+  s.nproc=get_pro_num();
+   printf("%d\n",s.nproc);
+
+  if(copyout(myproc()->pagetable,addr,(char*)&s,sizeof(s))<0)//将s复制回用户空间
+    return -1;
+  return 0;
+
+}
+

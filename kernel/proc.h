@@ -87,7 +87,7 @@ struct proc {
   struct spinlock lock;
 
   // p->lock must be held when using these:
-  enum procstate state;        // Process state
+  enum procstate state;        // Process state:已分配、就绪态、运行态、阻塞态、退出
   struct proc *parent;         // Parent process
   void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
@@ -103,4 +103,5 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  uint64 syscall_trace;
 };
