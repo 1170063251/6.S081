@@ -84,7 +84,7 @@ enum procstate { UNUSED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
 struct proc {
-  struct spinlock lock;
+   struct spinlock lock;
 
   // p->lock must be held when using these:
   enum procstate state;        // Process state
@@ -95,7 +95,7 @@ struct proc {
   int pid;                     // Process ID
 
   // these are private to the process, so p->lock need not be held.
-  uint64 kstack;               // Virtual address of kernel stack
+  uint64 kstack;               // Virtual address of kernel stack虚拟内核栈
   uint64 sz;                   // Size of process memory (bytes)
   pagetable_t pagetable;       // User page table
   struct trapframe *trapframe; // data page for trampoline.S
@@ -103,4 +103,5 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  pagetable_t k_pagetable; //添加的内核页表
 };

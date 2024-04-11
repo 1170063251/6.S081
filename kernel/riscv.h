@@ -325,12 +325,14 @@ sfence_vma()
 
 #define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
+// PGROUNDUP(sz)：sz大小的内存至少使用多少页才可以存下，返回的是下一个未使用页的地址
+// PGROUNDDOWN(a)：地址a所在页面是多少号页面，拉回所在页面开始地址
 
-#define PTE_V (1L << 0) // valid
-#define PTE_R (1L << 1)
-#define PTE_W (1L << 2)
-#define PTE_X (1L << 3)
-#define PTE_U (1L << 4) // 1 -> user can access
+#define PTE_V (1L << 0) // valid 指示PTE是否存在
+#define PTE_R (1L << 1)//控制是否允许指令读取到页面
+#define PTE_W (1L << 2)//控制是否允许指令写入到页面
+#define PTE_X (1L << 3)//控制CPU是否可以将页面内容解释为指令并执行它
+#define PTE_U (1L << 4) //制用户模式下的指令是否被允许访问页面 1 -> user can access
 
 // shift a physical address to the right place for a PTE.
 #define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)
@@ -350,5 +352,5 @@ sfence_vma()
 // that have the high bit set.
 #define MAXVA (1L << (9 + 9 + 9 + 12 - 1))
 
-typedef uint64 pte_t;
-typedef uint64 *pagetable_t; // 512 PTEs
+typedef uint64 pte_t;//页表项
+typedef uint64 *pagetable_t; // 512 PTEs，指向页表得指针

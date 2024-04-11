@@ -2508,15 +2508,25 @@ execout(char *s)
           break;
         *(char*)(a + 4096 - 1) = 1;
       }
-
+//printf("增加成功");
       // free a few pages, in order to let exec() make some
       // progress.
       for(int i = 0; i < avail; i++)
-        sbrk(-4096);
+      {
+        //printf("%d",i);
+      sbrk(-4096);
+      //printf("删除成功0.25\n");
+      //printf("%d",i);
+      }
+        
+        
       
       close(1);
+      //printf("删除成功\n");
       char *args[] = { "echo", "x", 0 };
+      //printf("删除成功1.5\n");
       exec("echo", args);
+      //printf("删除成功2\n");
       exit(0);
     } else {
       wait((int*)0);
