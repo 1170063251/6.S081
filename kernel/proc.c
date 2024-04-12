@@ -324,13 +324,13 @@ growproc(int n)
     if(sz<p->sz)
     {
       sz=uvmdealloc(p->pagetable, sz, sz + n);
-      printf("到达这\n");
+      //printf("到达这\n");
       int npages=(PGROUNDUP(p->sz)-PGROUNDUP(sz))/PGSIZE;
       uvmunmap(p->k_pagetable,PGROUNDUP(sz),npages,0);
-      printf("没到达这\n");
+      //printf("没到达这\n");
     }
      w_satp(MAKE_SATP(p->k_pagetable));
-     printf("到这了吗\n");
+     //printf("到这了吗\n");
      sfence_vma();
   }
   p->sz = sz;
