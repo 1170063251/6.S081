@@ -132,3 +132,20 @@ printfinit(void)
   initlock(&pr.lock, "pr");
   pr.locking = 1;
 }
+
+void 
+backtrace(void)
+{
+  uint64 framepointer=r_fp();
+  uint64 kerneltop=PGROUNDDOWN(framepointer)+PGSIZE;
+  printf("backtrace:\n");
+  while (framepointer<kerneltop)
+  {
+    uint64 returnaddr= *(uint64*)(framepointer-8);
+    printf("%p\n",returnaddr);
+
+    framepointer=*(uint64*)(framepointer-16);
+  }
+  return;
+
+}

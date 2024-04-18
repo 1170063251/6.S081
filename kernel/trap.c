@@ -56,6 +56,10 @@ usertrap(void)
     if(p->killed)
       exit(-1);
 
+   
+
+
+
     // sepc points to the ecall instruction,
     // but we want to return to the next instruction.
     p->trapframe->epc += 4;
@@ -78,7 +82,25 @@ usertrap(void)
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)
-    yield();
+  {
+     //时钟中断
+    if(p->alarm_interval!=0&&p->inhandler==0)
+    {
+      //printf("到这了\n");
+      p->count++;
+      if(p->count==p->alarm_interval)//到达触发时间
+      {
+        //保存上下文
+        memmove(&p->alarmframe,p->trapframe,sizeof(struct trapframe));
+        p->trapframe->epc=p->alarm_handler;
+
+        p->inhandler=1;//标志正在处于alarm中，避免重复进入handler
+
+      }
+    }
+     yield();
+  }
+   
 
   usertrapret();
 }
