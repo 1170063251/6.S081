@@ -9,6 +9,9 @@
 #include "riscv.h"
 #include "defs.h"
 
+#define PA2INDEX(pa) (((uint64)pa)/PGSIZE)//数组索引
+int cowcount[PHYSTOP/PGSIZE];
+
 void freerange(void *pa_start, void *pa_end);
 
 extern char end[]; // first address after kernel.
@@ -36,7 +39,11 @@ freerange(void *pa_start, void *pa_end)
   char *p;
   p = (char*)PGROUNDUP((uint64)pa_start);
   for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
+    
+    {
+cowcount[PA2INDEX(p)]=1;//初始化时候全部加入
     kfree(p);
+    }
 }
 
 // Free the page of physical memory pointed at by v,
@@ -51,6 +58,13 @@ kfree(void *pa)
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
+  acquire(&kmem.lock);
+  int remain=--cowcount[PA2INDEX(pa)];
+  release(&kmem.lock);
+  if(remain>0)
+  {
+    return;
+  }
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
 
@@ -77,6 +91,26 @@ kalloc(void)
   release(&kmem.lock);
 
   if(r)
-    memset((char*)r, 5, PGSIZE); // fill with junk
+  { memset((char*)r, 5, PGSIZE); // fill with junk
+    int index=PA2INDEX(r);
+    if(cowcount[index]!=0)
+    {
+      panic("kalloc:已经有计数");
+    }
+    acquire(&kmem.lock);
+    cowcount[index]=1;
+    release(&kmem.lock);
+  }
   return (void*)r;
+}
+
+void addjishu(uint64 pa)
+{
+  if (pa>PHYSTOP)
+    {
+      panic("超出物理上限");
+    }
+    acquire(&kmem.lock);
+    cowcount[PA2INDEX(pa)]=cowcount[PA2INDEX(pa)]+1;
+    release(&kmem.lock);
 }

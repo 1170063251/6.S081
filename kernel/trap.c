@@ -67,7 +67,15 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
+  }
+  else if((r_scause()==13||r_scause()==15)&&needcowpage(r_stval()))
+  {
+    if(uvmcowcopy(r_stval())<0)
+    {
+      p->killed=1;
+    }
+  } 
+  else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
@@ -83,6 +91,41 @@ usertrap(void)
   usertrapret();
 }
 
+int needcowpage(uint64 va)//是否是cow页
+{
+  pte_t *pte;
+  struct proc *p=myproc();
+  if(va<p->sz&& ((pte=walk(p->pagetable,va,0))!=0) && (*pte&PTE_V)  &&(*pte&PTE_COW))
+  {
+    return 1;
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+int uvmcowcopy(uint64 va)//写时复制
+{
+  pte_t *pte;
+  struct proc *p=myproc();
+  if((pte=walk(p->pagetable,va,0))==0)
+  {
+    panic("pte不存在");
+  }
+  uint64 pa_new=(uint64)kalloc();
+  if(pa_new==0)
+  {
+    printf("kalloc失败\n");
+    return -1;
+  }
+  uint64 pa_old=PTE2PA(*pte);
+  memmove((void*)pa_new,(void*)pa_old,PGSIZE);
+  kfree((void*)pa_old);
+  *pte=PA2PTE(pa_new)|PTE_FLAGS(*pte)|PTE_W;
+  return 0;
+
+}
 //
 // return to user space
 //
