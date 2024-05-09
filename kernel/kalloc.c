@@ -9,6 +9,8 @@
 #include "riscv.h"
 #include "defs.h"
 
+#define STEALPAGE 16
+
 void freerange(void *pa_start, void *pa_end);
 
 extern char end[]; // first address after kernel.
@@ -21,12 +23,19 @@ struct run {
 struct {
   struct spinlock lock;
   struct run *freelist;
-} kmem;
-
+} kmem[NCPU];
+//为每个cpu都创建一个锁
 void
 kinit()
 {
-  initlock(&kmem.lock, "kmem");
+  //initlock(&kmem.lock, "kmem");
+  //freerange(end, (void*)PHYSTOP);
+  static char lock_name[NCPU][7];
+  for(int i=0;i<NCPU;i++)
+  {
+    snprintf(lock_name[i],7,"kmem_%d",i);
+    initlock(&kmem[i].lock,lock_name[i]);
+  }
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -56,10 +65,15 @@ kfree(void *pa)
 
   r = (struct run*)pa;
 
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);
+push_off();
+int cpu=cpuid();
+
+  acquire(&kmem[cpu].lock);
+  r->next = kmem[cpu].freelist;
+  kmem[cpu].freelist = r;
+  release(&kmem[cpu].lock);
+
+pop_off();
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -68,15 +82,68 @@ kfree(void *pa)
 void *
 kalloc(void)
 {
+  // struct run *r;
+
+  // acquire(&kmem.lock);
+  // r = kmem.freelist;
+  // if(r)
+  //   kmem.freelist = r->next;
+  // release(&kmem.lock);
+
+  // if(r)
+  //   memset((char*)r, 5, PGSIZE); // fill with junk
+  // return (void*)r;
+
   struct run *r;
+  //关中断获取cpuid
+  push_off();
+  int cpu=cpuid();
 
-  acquire(&kmem.lock);
-  r = kmem.freelist;
+  acquire(&kmem[cpu].lock);
+  r=kmem[cpu].freelist;
   if(r)
-    kmem.freelist = r->next;
-  release(&kmem.lock);
-
+  {
+    kmem[cpu].freelist=r->next;
+    release(&kmem[cpu].lock);
+  }
+  else//需要偷页
+  {
+    release(&kmem[cpu].lock);
+    int steal_page=STEALPAGE;
+    struct run *steal_list=0;//偷到的链表
+    for(int i=0;i<NCPU;i++)
+    {
+      if(i!=cpu)
+      {
+        acquire(&kmem[i].lock);
+        for(struct run *r=kmem[i].freelist;r&&steal_page;r=kmem[i].freelist)
+        {
+          kmem[i].freelist=r->next;
+          r->next=steal_list;
+          steal_list=r;
+          steal_page--;
+        }
+        release(&kmem[i].lock);
+        if(steal_page==0)
+        {break;}
+      }
+    }
+    if(steal_list!=0)
+    {
+      r=steal_list;
+      acquire(&kmem[cpu].lock);
+      kmem[cpu].freelist=r->next;
+      release(&kmem[cpu].lock);
+    }
+  }
+  pop_off();
   if(r)
-    memset((char*)r, 5, PGSIZE); // fill with junk
+  {
+     memset((char*)r, 5, PGSIZE);
+  }
   return (void*)r;
+
+
 }
+
+
