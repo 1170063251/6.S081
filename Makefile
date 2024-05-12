@@ -198,6 +198,7 @@ endif
 ifeq ($(LAB),cow)
 UPROGS += \
 	$U/_cowtest
+	
 endif
 
 ifeq ($(LAB),thread)
@@ -226,7 +227,8 @@ endif
 
 ifeq ($(LAB),fs)
 UPROGS += \
-	$U/_bigfile
+	$U/_bigfile\
+	$U/_symlinktest
 endif
 
 

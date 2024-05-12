@@ -329,6 +329,13 @@ iunlock(struct inode *ip)
 // to it, free the inode (and its content) on disk.
 // All calls to iput() must be inside a transaction in
 // case it has to free the inode.
+//删除对内存索引节点的引用。
+//如果这是最后一个引用，inode缓存条目可以
+//循环使用。
+//如果这是最后一个引用，并且索引节点没有链接
+//释放磁盘上的inode(及其内容)。
+//所有对input()的调用必须在事务中
+//在这种情况下，它必须释放索引节点。
 void
 iput(struct inode *ip)
 {
@@ -374,6 +381,15 @@ iunlockput(struct inode *ip)
 
 // Return the disk block address of the nth block in inode ip.
 // If there is no such block, bmap allocates one.
+// Inode内容
+//
+//存储与每个索引节点相关联的内容(数据)
+//在磁盘上以块为单位。第一个NDIRECT块编号
+//在ip->addrs[]中列出。下一个NINDIRECT块是
+//列出块ip->地址[NDIRECT]。
+
+//返回inode ip中第n块的磁盘块地址。
+//如果没有这样的块，bmap分配一个。
 static uint
 bmap(struct inode *ip, uint bn)
 {
@@ -387,18 +403,48 @@ bmap(struct inode *ip, uint bn)
   }
   bn -= NDIRECT;
 
-  if(bn < NINDIRECT){
+  if(bn < NINDIRECT)
+  {
     // Load indirect block, allocating if necessary.
-    if((addr = ip->addrs[NDIRECT]) == 0)
-      ip->addrs[NDIRECT] = addr = balloc(ip->dev);
-    bp = bread(ip->dev, addr);
-    a = (uint*)bp->data;
+    if((addr = ip->addrs[NDIRECT]) == 0)//如果inode间接块地址为0
+      ip->addrs[NDIRECT] = addr = balloc(ip->dev);//分配一个新的间接块，并将其地址存储到inode的addr数组中
+    bp = bread(ip->dev, addr);//读取磁盘块，存储在bp中
+    a = (uint*)bp->data;// 将bp的数据指针转换为uint类型指针
     if((addr = a[bn]) == 0){
-      a[bn] = addr = balloc(ip->dev);
+      a[bn] = addr = balloc(ip->dev); // 分配一个新块，并将其地址存储到间接块中
       log_write(bp);
     }
     brelse(bp);
     return addr;
+  }
+
+  bn-=NINDIRECT;
+  if(bn<NINDIRECT*NINDIRECT)
+  {
+    if((addr=ip->addrs[NDIRECT+1])==0)
+    {
+      ip->addrs[NDIRECT+1]=addr=balloc(ip->dev);
+    }
+       bp = bread(ip->dev, addr);
+       a = (uint*)bp->data;
+       if((addr=a[bn/NINDIRECT])==0)
+       {
+        a[bn/NINDIRECT]=addr=balloc(ip->dev);
+        log_write(bp);
+       }
+       brelse(bp);
+       bn=bn%NINDIRECT;
+       bp=bread(ip->dev,addr);
+       a=(uint*)bp->data;
+       if((addr=a[bn])==0)
+       {
+        a[bn]=addr=balloc(ip->dev);
+        log_write(bp);
+       }
+        brelse(bp);
+      return addr;
+    
+   
   }
 
   panic("bmap: out of range");
@@ -430,6 +476,27 @@ itrunc(struct inode *ip)
     brelse(bp);
     bfree(ip->dev, ip->addrs[NDIRECT]);
     ip->addrs[NDIRECT] = 0;
+  }
+  
+  if(ip->addrs[NDIRECT+1])
+  {
+     bp = bread(ip->dev, ip->addrs[NDIRECT+1]);
+    a = (uint*)bp->data;
+    for(j = 0; j < NINDIRECT; j++){
+      if(a[j]) {
+        struct buf *bp2 = bread(ip->dev, a[j]);
+        uint *a2 = (uint*)bp2->data;
+        for(int k = 0; k < NINDIRECT; k++){
+          if(a2[k])
+            bfree(ip->dev, a2[k]);
+        }
+        brelse(bp2);
+        bfree(ip->dev, a[j]);
+      }
+    }
+    brelse(bp);
+    bfree(ip->dev, ip->addrs[NDIRECT+1]);
+    ip->addrs[NDIRECT + 1] = 0;
   }
 
   ip->size = 0;
@@ -476,13 +543,13 @@ readi(struct inode *ip, int user_dst, uint64 dst, uint off, uint n)
   return tot;
 }
 
-// Write data to inode.
-// Caller must hold ip->lock.
-// If user_src==1, then src is a user virtual address;
-// otherwise, src is a kernel address.
-// Returns the number of bytes successfully written.
-// If the return value is less than the requested n,
-// there was an error of some kind.
+//写入数据到inode。
+//来电者必须持有ip - >锁定。
+//如果user_src = 1,那么src是一个用户虚拟地址;
+//否则,src是一个内核地址。
+//返回成功编写的字节数。
+//如果返回值小于请求的n,
+//有某种错误。
 int
 writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
 {
